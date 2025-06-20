@@ -103,9 +103,21 @@ class MedicalJobDescriptionGenerator:
             except Exception as e:
                 print(f"❌ Google Cloud setup failed: {e}")
                 self.google_cloud_available = False
-                raise Exception("❌ Cannot proceed without Google Cloud AI")
+                error_msg = f"❌ Google Cloud setup failed: {str(e)}"
+                if "credentials" in str(e).lower():
+                    error_msg += "\n💡 Check your Google Cloud credentials in Streamlit secrets"
+                elif "permission" in str(e).lower():
+                    error_msg += "\n💡 Check your service account permissions (Vertex AI User role needed)"
+                elif "project" in str(e).lower():
+                    error_msg += "\n💡 Check your project ID: theta-outrider-460308-k8"
+                raise Exception(error_msg)
         else:
-            raise Exception("❌ Google Cloud AI not available - cannot generate AI responses")
+            error_msg = "❌ Google Cloud AI not available"
+            if not GOOGLE_CLOUD_AVAILABLE:
+                error_msg += "\n💡 Google Cloud libraries not installed properly"
+            elif not VERTEX_AI_INITIALIZED:
+                error_msg += "\n💡 Vertex AI initialization failed - check authentication"
+            raise Exception(error_msg)
     
     def setup_agent(self):
         """Setup the medical job description agent using LangchainAgent"""
