@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Medical Job Description Generator - Generate professional medical job descriptions using Google Cloud AI
+Medical Job Description Generator - Generate professional medical job descriptions using Groq AI
 Specialized for medical staffing and healthcare roles in India
 """
 
@@ -8,113 +8,130 @@ import os
 import json
 from datetime import datetime
 
-# Try to import Google Cloud dependencies with fallbacks
+# Try to import Streamlit for secrets (when deployed)
 try:
-    import vertexai
-    from vertexai import agent_engines
-    from langchain_google_vertexai import HarmBlockThreshold, HarmCategory
-    GOOGLE_CLOUD_AVAILABLE = True
-    print("✅ Google Cloud dependencies available")
-except ImportError as e:
-    print(f"⚠️ Google Cloud dependencies not available: {e}")
-    GOOGLE_CLOUD_AVAILABLE = False
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 
-# Try specific Vertex AI imports
+# Try to import Groq dependencies
 try:
-    if GOOGLE_CLOUD_AVAILABLE:
-        vertexai.init(
-            project="theta-outrider-460308-k8",  # Replace with your project ID
-            location="us-central1",
-        )
-        print("✅ Vertex AI initialized")
-    VERTEX_AI_INITIALIZED = True
-except Exception as e:
-    print(f"⚠️ Vertex AI initialization failed: {e}")
-    VERTEX_AI_INITIALIZED = False
+    from langchain_groq import ChatGroq
+    from langchain.schema import HumanMessage, SystemMessage
+    GROQ_AVAILABLE = True
+    print("✅ Groq dependencies available")
+except ImportError as e:
+    print(f"⚠️ Groq dependencies not available: {e}")
+    GROQ_AVAILABLE = False
+
+# Initialize Groq AI
+def initialize_groq():
+    """Initialize Groq with API key"""
+    try:
+        if not GROQ_AVAILABLE:
+            return False
+            
+        # Try to get API key from Streamlit secrets (when deployed)
+        api_key = None
+        if STREAMLIT_AVAILABLE and hasattr(st, 'secrets'):
+            try:
+                if hasattr(st.secrets, 'GROQ_API_KEY'):
+                    api_key = st.secrets.GROQ_API_KEY
+                    print("✅ Groq API key loaded from Streamlit secrets")
+            except Exception as e:
+                print(f"⚠️ Streamlit secrets loading failed: {e}")
+        
+        # Fallback: try environment variable
+        if not api_key:
+            api_key = os.getenv('GROQ_API_KEY')
+            if api_key:
+                print("✅ Groq API key loaded from environment variable")
+        
+        # Last resort: use the provided key
+        if not api_key:
+            api_key = "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"
+            print("✅ Using provided Groq API key")
+        
+        if api_key:
+            # Test the connection
+            llm = ChatGroq(
+                model="llama-3.1-8b-instant",
+                temperature=0,
+                max_tokens=100,
+                timeout=10,
+                max_retries=1,
+                groq_api_key=api_key
+            )
+            
+            # Quick test
+            test_message = [HumanMessage(content="Hello")]
+            response = llm.invoke(test_message)
+            print("✅ Groq AI initialized successfully")
+            return True, api_key
+        else:
+            print("❌ No Groq API key found")
+            return False, None
+            
+    except Exception as e:
+        print(f"❌ Groq initialization failed: {e}")
+        return False, None
+
+# Initialize Groq
+GROQ_INITIALIZED, GROQ_API_KEY = initialize_groq()
 
 class MedicalJobDescriptionGenerator:
     def __init__(self):
         """Initialize the medical job description generator for India"""
-        self.google_cloud_available = GOOGLE_CLOUD_AVAILABLE and VERTEX_AI_INITIALIZED
+        self.groq_available = GROQ_AVAILABLE and GROQ_INITIALIZED
         
-        if self.google_cloud_available:
+        if self.groq_available:
             try:
                 self.setup_agent()
-                print("✅ Medical Job Description Generator (India) initialized with Google Cloud AI")
+                print("✅ Medical Job Description Generator (India) initialized with Groq AI")
             except Exception as e:
-                print(f"❌ Google Cloud setup failed: {e}")
-                self.google_cloud_available = False
-                raise Exception("❌ Cannot proceed without Google Cloud AI")
+                print(f"❌ Groq setup failed: {e}")
+                self.groq_available = False
+                error_msg = f"❌ Groq setup failed: {str(e)}"
+                if "api_key" in str(e).lower():
+                    error_msg += "\n💡 Check your Groq API key in Streamlit secrets"
+                elif "model" in str(e).lower():
+                    error_msg += "\n💡 Check if the model name is correct"
+                raise Exception(error_msg)
         else:
-            raise Exception("❌ Google Cloud AI not available - cannot generate AI responses")
+            error_msg = "❌ Groq AI not available"
+            if not GROQ_AVAILABLE:
+                error_msg += "\n💡 Groq libraries not installed properly"
+            elif not GROQ_INITIALIZED:
+                error_msg += "\n💡 Groq initialization failed - check API key"
+            raise Exception(error_msg)
     
     def setup_agent(self):
-        """Setup the medical job description agent using LangchainAgent"""
+        """Setup the medical job description agent using Groq"""
         try:
-            # Model configuration
-            model = "gemini-2.0-flash"
-            
-            # Safety settings
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-            }
-            
-            # Model parameters - optimized for speed
-            model_kwargs = {
-                "temperature": 0.28,
-                "max_output_tokens": 4000,  # Reduced for faster generation
-                "top_p": 0.95,
-                "top_k": None,
-                "safety_settings": safety_settings,
-            }
-            
-            # Initialize LangchainAgent
-            self.agent = agent_engines.LangchainAgent(
-                model=model,
-                model_kwargs=model_kwargs,
+            # Initialize Groq LLM
+            self.llm = ChatGroq(
+                model="llama-3.1-8b-instant",
+                temperature=0.28,
+                max_tokens=15000,  # Optimized for speed
+                timeout=30,  # 30 second timeout
+                max_retries=1,  # Only 1 retry for speed
+                groq_api_key=GROQ_API_KEY
             )
             
-            print("✅ LangchainAgent initialized successfully")
+            print("✅ Groq LLM initialized successfully")
             
         except Exception as e:
-            print(f"❌ Error setting up AI agent: {e}")
+            print(f"❌ Error setting up Groq agent: {e}")
             raise
 
     def generate_medical_job_description(self, job_requirements):
-        """Generate a comprehensive medical job description using AI for Indian healthcare"""
+        """Generate a comprehensive medical job description using Groq AI for Indian healthcare"""
         try:
-            job_title = job_requirements.get('job_title', '')
-            facility_name = job_requirements.get('facility_name', '')
-            facility_type = job_requirements.get('facility_type', '')
-            department = job_requirements.get('department', '')
-            location = job_requirements.get('location', '')
-            shift_pattern = job_requirements.get('shift_pattern', '')
-            employment_type = job_requirements.get('employment_type', 'Full-time')
-            contract_type = job_requirements.get('contract_type', '')
-            salary_range = job_requirements.get('salary_range', '')
-            experience_level = job_requirements.get('experience_level', '')
-            
-            # Medical-specific fields for India
-            required_licenses = job_requirements.get('required_licenses', [])
-            required_certifications = job_requirements.get('required_certifications', [])
-            specialty_requirements = job_requirements.get('specialty_requirements', [])
-            patient_population = job_requirements.get('patient_population', '')
-            emr_systems = job_requirements.get('emr_systems', [])
-            compliance_requirements = job_requirements.get('compliance_requirements', [])
-            
-            key_responsibilities = job_requirements.get('key_responsibilities', [])
-            qualifications = job_requirements.get('qualifications', [])
-            preferred_qualifications = job_requirements.get('preferred_qualifications', [])
-            benefits = job_requirements.get('benefits', [])
-            
             # Check if this is an enhanced prompt (from simple app)
             enhanced_prompt = job_requirements.get('enhanced_prompt', '')
             
-            print(f"🏥 Generating medical job description for: '{job_title}' at {facility_name}")
+            print(f"🏥 Generating medical job description with Groq AI...")
             
             # Create comprehensive medical job description prompt for India
             if enhanced_prompt:
@@ -125,29 +142,29 @@ class MedicalJobDescriptionGenerator:
                 medical_job_prompt = f"""You are a specialized medical staffing professional and healthcare HR expert in India. Create a comprehensive, compliant, and attractive job description for a medical/healthcare position in the Indian healthcare system.
 
 MEDICAL JOB REQUIREMENTS (INDIA):
-- Job Title: {job_title}
-- Healthcare Facility: {facility_name}
-- Facility Type: {facility_type} (Hospital, Clinic, Nursing Home, Diagnostic Center, etc.)
-- Department/Unit: {department}
-- Location: {location}
-- Shift Pattern: {shift_pattern}
-- Employment Type: {employment_type}
-- Contract Type: {contract_type}
-- Salary/Rate Range: {salary_range}
-- Experience Level: {experience_level}
+- Job Title: {job_requirements.get('job_title', '')}
+- Healthcare Facility: {job_requirements.get('facility_name', '')}
+- Facility Type: {job_requirements.get('facility_type', '')} (Hospital, Clinic, Nursing Home, Diagnostic Center, etc.)
+- Department/Unit: {job_requirements.get('department', '')}
+- Location: {job_requirements.get('location', '')}
+- Shift Pattern: {job_requirements.get('shift_pattern', '')}
+- Employment Type: {job_requirements.get('employment_type', 'Full-time')}
+- Contract Type: {job_requirements.get('contract_type', '')}
+- Salary/Rate Range: {job_requirements.get('salary_range', '')}
+- Experience Level: {job_requirements.get('experience_level', '')}
 
 INDIA-SPECIFIC MEDICAL REQUIREMENTS:
-- Required Licenses: {', '.join(required_licenses) if required_licenses else 'Valid Indian medical registration'}
-- Required Certifications: {', '.join(required_certifications) if required_certifications else 'As per Indian medical standards'}
-- Specialty Requirements: {', '.join(specialty_requirements) if specialty_requirements else 'As per role requirements'}
-- Patient Population: {patient_population}
-- EMR/EHR Systems: {', '.join(emr_systems) if emr_systems else 'Hospital management systems'}
-- Compliance Requirements: {', '.join(compliance_requirements) if compliance_requirements else 'Indian healthcare regulations'}
+- Required Licenses: {', '.join(job_requirements.get('required_licenses', [])) if job_requirements.get('required_licenses') else 'Valid Indian medical registration'}
+- Required Certifications: {', '.join(job_requirements.get('required_certifications', [])) if job_requirements.get('required_certifications') else 'As per Indian medical standards'}
+- Specialty Requirements: {', '.join(job_requirements.get('specialty_requirements', [])) if job_requirements.get('specialty_requirements') else 'As per role requirements'}
+- Patient Population: {job_requirements.get('patient_population', '')}
+- EMR/EHR Systems: {', '.join(job_requirements.get('emr_systems', [])) if job_requirements.get('emr_systems') else 'Hospital management systems'}
+- Compliance Requirements: {', '.join(job_requirements.get('compliance_requirements', [])) if job_requirements.get('compliance_requirements') else 'Indian healthcare regulations'}
 
-KEY RESPONSIBILITIES: {', '.join(key_responsibilities) if key_responsibilities else 'Standard for role in Indian healthcare'}
-QUALIFICATIONS: {', '.join(qualifications) if qualifications else 'As per Indian medical education standards'}
-PREFERRED QUALIFICATIONS: {', '.join(preferred_qualifications) if preferred_qualifications else 'Additional relevant experience'}
-BENEFITS: {', '.join(benefits) if benefits else 'Competitive benefits as per Indian standards'}
+KEY RESPONSIBILITIES: {', '.join(job_requirements.get('key_responsibilities', [])) if job_requirements.get('key_responsibilities') else 'Standard for role in Indian healthcare'}
+QUALIFICATIONS: {', '.join(job_requirements.get('qualifications', [])) if job_requirements.get('qualifications') else 'As per Indian medical education standards'}
+PREFERRED QUALIFICATIONS: {', '.join(job_requirements.get('preferred_qualifications', [])) if job_requirements.get('preferred_qualifications') else 'Additional relevant experience'}
+BENEFITS: {', '.join(job_requirements.get('benefits', [])) if job_requirements.get('benefits') else 'Competitive benefits as per Indian standards'}
 
 REQUIREMENTS FOR INDIAN MEDICAL JOB DESCRIPTION:
 1. **PROFESSIONAL MEDICAL TONE**: Use appropriate medical terminology and professional language suitable for Indian healthcare
@@ -198,144 +215,106 @@ INDIAN EMPLOYMENT BENEFITS TO CONSIDER:
 - Meal facilities
 
 OUTPUT FORMAT:
-Generate a JSON object with the following structure:
-{{
-    "job_title": "{job_title}",
-    "facility_name": "{facility_name}",
-    "facility_type": "{facility_type}",
-    "job_description": "Complete formatted medical job description with all sections for Indian healthcare",
-    "summary": "Brief 2-3 sentence summary highlighting the medical role's impact in Indian healthcare",
-    "required_credentials": ["Indian medical registration", "certification1", "qualification1"],
-    "key_medical_keywords": ["medical_term1", "specialty1", "skill1", "system1", "compliance1"],
-    "patient_care_focus": "Brief description of patient care responsibilities in Indian context",
-    "compliance_highlights": ["Indian_regulation1", "standard1", "requirement1"]
-}}
+Create a professional, compliant medical job description that would attract qualified healthcare professionals in India and follows Indian medical education and registration standards."""
 
-Generate a compelling medical job description for the Indian healthcare system that will attract qualified healthcare professionals while ensuring regulatory compliance with Indian medical standards:"""
-
-            print("🤖 Generating medical job description with AI...")
+            print("🤖 Generating medical job description with Groq AI...")
             
-            response = self.agent.query(input=medical_job_prompt)
+            # Create messages for Groq
+            messages = [
+                SystemMessage(content="You are a specialized medical staffing professional and healthcare HR expert in India. Create comprehensive, compliant, and attractive job descriptions for medical/healthcare positions in the Indian healthcare system."),
+                HumanMessage(content=medical_job_prompt)
+            ]
             
-            if not response or not response.get('output'):
-                raise Exception("❌ AI agent returned empty response")
+            # Generate response using Groq
+            response = self.llm.invoke(messages)
             
-            ai_response = response['output']
-            
-            # Extract JSON from response
-            job_description_data = self.extract_json_from_response(ai_response)
-            
-            if not job_description_data:
-                # Fallback: create structured data from raw response
-                job_description_data = {
-                    "job_title": job_title,
-                    "facility_name": facility_name,
-                    "facility_type": facility_type,
-                    "job_description": ai_response,
-                    "summary": f"Healthcare opportunity: {job_title} at {facility_name}",
-                    "required_credentials": required_licenses + required_certifications,
-                    "key_medical_keywords": specialty_requirements[:5] if specialty_requirements else [],
-                    "patient_care_focus": f"Providing quality care to {patient_population}" if patient_population else "Patient-centered care",
-                    "compliance_highlights": compliance_requirements[:3] if compliance_requirements else ["Clinical Establishments Act", "Bio-Medical Waste Rules", "NMC Guidelines"]
+            if response and response.content:
+                # Extract the generated job description
+                job_description = response.content.strip()
+                
+                # Create structured response
+                result = {
+                    'job_description': job_description,
+                    'generated_at': datetime.now().isoformat(),
+                    'model_used': 'llama-3.1-8b-instant (Groq)',
+                    'generation_time': 'Fast (Groq optimized)',
+                    'compliance': 'Indian healthcare standards',
+                    'format': 'Professional medical job description'
                 }
-            
-            print(f"✅ Medical job description generated: {len(job_description_data.get('job_description', ''))} characters")
-            
-            return job_description_data
-            
+                
+                print("✅ Medical job description generated successfully with Groq AI")
+                return result
+            else:
+                print("❌ Groq AI returned empty response")
+                return None
+                
         except Exception as e:
             print(f"❌ Error generating medical job description: {e}")
-            return None
+            raise Exception(f"❌ Failed to generate job description: {str(e)}")
 
     def extract_json_from_response(self, response_text):
-        """Extract JSON object from AI response"""
+        """Extract JSON from response text if present"""
         try:
+            # Look for JSON in the response
             import re
-            # Try to find JSON using regex
-            json_pattern = r'\{[\s\S]*\}'
-            json_match = re.search(json_pattern, response_text)
-            
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
-            else:
-                return None
-        except json.JSONDecodeError as e:
-            print(f"⚠️ Error parsing JSON: {e}")
             return None
         except Exception as e:
-            print(f"⚠️ Error extracting JSON: {e}")
+            print(f"⚠️ Could not extract JSON: {e}")
             return None
 
     def save_medical_job_description(self, job_data, output_dir="medical_job_descriptions"):
-        """Save medical job description to file"""
+        """Save the generated job description to a file"""
         try:
-            # Create output directory
+            # Create output directory if it doesn't exist
             os.makedirs(output_dir, exist_ok=True)
             
-            # Create filename
+            # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            job_title_safe = job_data['job_title'].replace(' ', '_').replace('/', '_')
-            facility_safe = job_data['facility_name'].replace(' ', '_').replace('/', '_')
-            filename = f"medical_jd_{facility_safe}_{job_title_safe}_{timestamp}.json"
+            filename = f"medical_jd_{timestamp}.json"
             filepath = os.path.join(output_dir, filename)
             
-            # Add metadata
-            job_data['generated_at'] = datetime.now().isoformat()
-            job_data['generator_version'] = '2.0_medical_india'
-            job_data['industry'] = 'healthcare'
-            job_data['country'] = 'india'
-            
-            # Save to file
+            # Save to JSON file
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(job_data, f, indent=2, ensure_ascii=False)
             
-            print(f"💾 Medical job description saved to: {filepath}")
+            print(f"✅ Job description saved to: {filepath}")
             return filepath
             
         except Exception as e:
-            print(f"❌ Error saving medical job description: {e}")
+            print(f"❌ Error saving job description: {e}")
             return None
 
     def get_medical_role_templates(self):
         """Get common medical role templates for India"""
-        templates = {
-            "registered_nurse": {
-                "job_title": "Staff Nurse",
-                "required_licenses": ["Valid Nursing Registration", "State Nursing Council Registration"],
-                "required_certifications": ["GNM/B.Sc Nursing", "Basic Life Support"],
-                "specialty_requirements": ["Medical-Surgical nursing experience"],
-                "compliance_requirements": ["Clinical Establishments Act", "Bio-Medical Waste Rules", "Nursing Council guidelines"]
+        return {
+            "Staff Nurse": {
+                "education": "B.Sc Nursing / GNM",
+                "licenses": ["State Nursing Council Registration"],
+                "experience": "1-5 years",
+                "specialties": ["ICU", "Emergency", "OT", "Ward", "Pediatrics"]
             },
-            "medical_officer": {
-                "job_title": "Medical Officer",
-                "required_licenses": ["Valid Medical Registration", "State Medical Council Registration"],
-                "required_certifications": ["MBBS degree", "Permanent/Provisional Registration"],
-                "specialty_requirements": ["General medicine experience"],
-                "compliance_requirements": ["Clinical Establishments Act", "NMC guidelines", "State medical regulations"]
+            "Medical Officer": {
+                "education": "MBBS",
+                "licenses": ["State Medical Council Registration"],
+                "experience": "0-3 years",
+                "specialties": ["General Medicine", "Emergency", "Rural Health"]
             },
-            "specialist_doctor": {
-                "job_title": "Specialist Doctor",
-                "required_licenses": ["Valid Medical Registration", "State Medical Council Registration"],
-                "required_certifications": ["MBBS + MD/MS/DNB", "Specialty board certification"],
-                "specialty_requirements": ["Specialty experience", "Post-graduate qualification"],
-                "compliance_requirements": ["Clinical Establishments Act", "NMC guidelines", "Specialty board requirements"]
+            "Physiotherapist": {
+                "education": "BPT / MPT",
+                "licenses": ["State Physiotherapy Council Registration"],
+                "experience": "1-3 years",
+                "specialties": ["Orthopedic", "Neurological", "Sports", "Cardiopulmonary"]
             },
-            "physiotherapist": {
-                "job_title": "Physiotherapist",
-                "required_licenses": ["Valid Physiotherapy Registration", "State Council Registration"],
-                "required_certifications": ["BPT/MPT degree", "Professional registration"],
-                "specialty_requirements": ["Orthopedic or general physiotherapy experience"],
-                "compliance_requirements": ["Clinical Establishments Act", "Physiotherapy Council guidelines"]
-            },
-            "pharmacist": {
-                "job_title": "Pharmacist",
-                "required_licenses": ["Valid Pharmacy Registration", "State Pharmacy Council Registration"],
-                "required_certifications": ["D.Pharm/B.Pharm degree", "Professional registration"],
-                "specialty_requirements": ["Hospital pharmacy experience"],
-                "compliance_requirements": ["Drugs and Cosmetics Act", "Pharmacy Council guidelines"]
+            "Radiologist": {
+                "education": "MBBS + MD/DNB Radiology",
+                "licenses": ["State Medical Council Registration"],
+                "experience": "3-8 years",
+                "specialties": ["Diagnostic Radiology", "Interventional Radiology"]
             }
         }
-        return templates
 
 def main():
     """Example usage of the Medical Job Description Generator for India"""
@@ -432,11 +411,11 @@ def main():
         print(f"🏥 Position: {job_data.get('job_title', '')}")
         print(f"🏢 Facility: {job_data.get('facility_name', '')}")
         print(f"🏥 Type: {job_data.get('facility_type', '')}")
-        print(f"📄 Summary: {job_data.get('summary', '')}")
-        print(f"🏥 Patient Care: {job_data.get('patient_care_focus', '')}")
-        print(f"📜 Required Credentials: {', '.join(job_data.get('required_credentials', []))}")
-        print(f"🔑 Medical Keywords: {', '.join(job_data.get('key_medical_keywords', []))}")
-        print(f"⚖️ Compliance: {', '.join(job_data.get('compliance_highlights', []))}")
+        print(f"📄 Summary: {job_data.get('job_description', '')}")
+        print(f"🏥 Patient Care: {job_data.get('job_description', '').split('KEY RESPONSIBILITIES:')[1].split('QUALIFICATIONS:')[0].strip()}")
+        print(f"📜 Required Credentials: {', '.join(job_data.get('required_licenses', []))}")
+        print(f"🔑 Medical Keywords: {', '.join(job_data.get('job_description', '').split('KEY RESPONSIBILITIES:')[0].split(':')[1].split(' ')[1:])}")
+        print(f"⚖️ Compliance: {', '.join(job_data.get('compliance_requirements', []))}")
         print(f"💾 Saved to: {filepath}")
         print("=" * 60)
         
@@ -444,7 +423,9 @@ def main():
         print("\n🩺 Available Medical Role Templates (India):")
         templates = generator.get_medical_role_templates()
         for key, template in templates.items():
-            print(f"  • {template['job_title']}")
+            print(f"  • {key}")
+            for k, v in template.items():
+                print(f"    • {k}: {v}")
         
     else:
         print("❌ Failed to generate medical job description")

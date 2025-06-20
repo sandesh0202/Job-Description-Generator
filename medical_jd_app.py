@@ -6,7 +6,7 @@ With Browser-Based Speech-to-Text Integration
 
 import streamlit as st
 import re
-from jd_generator import MedicalJobDescriptionGenerator
+from jd_generator_groq import MedicalJobDescriptionGenerator
 import streamlit.components.v1 as components
 
 # Page configuration
@@ -316,7 +316,7 @@ def main():
             final_prompt = st.session_state.speech_text.strip()
             st.info(f"🎤 Using voice input: {final_prompt[:100]}..." if len(final_prompt) > 100 else f"🎤 Using voice input: {final_prompt}")
             
-            with st.spinner("🤖 AI is creating your medical job description... (this may take 30-45 seconds)"):
+            with st.spinner("🤖 AI is creating your medical job description... (this may take 5-15 seconds)"):
                 try:
                     # Parse prompt for basic requirements
                     job_requirements = parse_prompt_for_requirements(final_prompt)
