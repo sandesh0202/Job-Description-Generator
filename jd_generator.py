@@ -134,10 +134,10 @@ class MedicalJobDescriptionGenerator:
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
             }
             
-            # Model parameters
+            # Model parameters - optimized for speed
             model_kwargs = {
                 "temperature": 0.28,
-                "max_output_tokens": 8000,
+                "max_output_tokens": 4000,  # Reduced for faster generation
                 "top_p": 0.95,
                 "top_k": None,
                 "safety_settings": safety_settings,

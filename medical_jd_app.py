@@ -316,7 +316,7 @@ def main():
             final_prompt = st.session_state.speech_text.strip()
             st.info(f"🎤 Using voice input: {final_prompt[:100]}..." if len(final_prompt) > 100 else f"🎤 Using voice input: {final_prompt}")
             
-            with st.spinner("🤖 AI is creating your medical job description..."):
+            with st.spinner("🤖 AI is creating your medical job description... (this may take 30-45 seconds)"):
                 try:
                     # Parse prompt for basic requirements
                     job_requirements = parse_prompt_for_requirements(final_prompt)
@@ -344,9 +344,6 @@ def main():
                     """
                     
                     job_requirements['enhanced_prompt'] = enhanced_prompt
-                    
-                    # Debug information
-                    st.info(f"🔧 **Debug:** Sending request to AI generator...")
                     
                     # Generate job description
                     result = st.session_state.generator.generate_medical_job_description(job_requirements)
