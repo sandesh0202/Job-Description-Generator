@@ -7,89 +7,30 @@ Specialized for medical staffing and healthcare roles in India
 import os
 import json
 from datetime import datetime
-import tempfile
-
-# Try to import Streamlit for secrets (when deployed)
-try:
-    import streamlit as st
-    STREAMLIT_AVAILABLE = True
-except ImportError:
-    STREAMLIT_AVAILABLE = False
 
 # Try to import Google Cloud dependencies with fallbacks
 try:
     import vertexai
     from vertexai import agent_engines
     from langchain_google_vertexai import HarmBlockThreshold, HarmCategory
-    from google.oauth2 import service_account
     GOOGLE_CLOUD_AVAILABLE = True
     print("✅ Google Cloud dependencies available")
 except ImportError as e:
     print(f"⚠️ Google Cloud dependencies not available: {e}")
     GOOGLE_CLOUD_AVAILABLE = False
 
-# Initialize Google Cloud authentication and Vertex AI
-def initialize_google_cloud():
-    """Initialize Google Cloud with proper authentication"""
-    try:
-        if not GOOGLE_CLOUD_AVAILABLE:
-            return False
-            
-        project_id = "theta-outrider-460308-k8"
-        location = "us-central1"
-        
-        # Try to get credentials from Streamlit secrets (when deployed)
-        if STREAMLIT_AVAILABLE and hasattr(st, 'secrets'):
-            try:
-                # Get project ID from secrets if available
-                if hasattr(st.secrets, 'GCP_PROJECT_ID'):
-                    project_id = st.secrets.GCP_PROJECT_ID
-                
-                # Set up authentication using service account JSON from secrets
-                if hasattr(st.secrets, 'GOOGLE_APPLICATION_CREDENTIALS_JSON'):
-                    credentials_json = st.secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON
-                    
-                    # Parse the JSON credentials
-                    if isinstance(credentials_json, str):
-                        credentials_info = json.loads(credentials_json)
-                    else:
-                        credentials_info = credentials_json
-                    
-                    # Create credentials from the JSON
-                    credentials = service_account.Credentials.from_service_account_info(
-                        credentials_info,
-                        scopes=['https://www.googleapis.com/auth/cloud-platform']
-                    )
-                    
-                    # Initialize Vertex AI with credentials
-                    vertexai.init(
-                        project=project_id,
-                        location=location,
-                        credentials=credentials
-                    )
-                    print(f"✅ Vertex AI initialized with Streamlit secrets for project: {project_id}")
-                    return True
-                    
-            except Exception as e:
-                print(f"⚠️ Streamlit secrets authentication failed: {e}")
-        
-        # Fallback: try environment variables or default credentials
-        if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
-            vertexai.init(project=project_id, location=location)
-            print(f"✅ Vertex AI initialized with environment credentials for project: {project_id}")
-            return True
-        
-        # Last resort: try default credentials
-        vertexai.init(project=project_id, location=location)
-        print(f"✅ Vertex AI initialized with default credentials for project: {project_id}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Vertex AI initialization failed: {e}")
-        return False
-
-# Initialize Google Cloud
-VERTEX_AI_INITIALIZED = initialize_google_cloud()
+# Try specific Vertex AI imports
+try:
+    if GOOGLE_CLOUD_AVAILABLE:
+        vertexai.init(
+            project="theta-outrider-460308-k8",  # Replace with your project ID
+            location="us-central1",
+        )
+        print("✅ Vertex AI initialized")
+    VERTEX_AI_INITIALIZED = True
+except Exception as e:
+    print(f"⚠️ Vertex AI initialization failed: {e}")
+    VERTEX_AI_INITIALIZED = False
 
 class MedicalJobDescriptionGenerator:
     def __init__(self):
@@ -103,21 +44,9 @@ class MedicalJobDescriptionGenerator:
             except Exception as e:
                 print(f"❌ Google Cloud setup failed: {e}")
                 self.google_cloud_available = False
-                error_msg = f"❌ Google Cloud setup failed: {str(e)}"
-                if "credentials" in str(e).lower():
-                    error_msg += "\n💡 Check your Google Cloud credentials in Streamlit secrets"
-                elif "permission" in str(e).lower():
-                    error_msg += "\n💡 Check your service account permissions (Vertex AI User role needed)"
-                elif "project" in str(e).lower():
-                    error_msg += "\n💡 Check your project ID: theta-outrider-460308-k8"
-                raise Exception(error_msg)
+                raise Exception("❌ Cannot proceed without Google Cloud AI")
         else:
-            error_msg = "❌ Google Cloud AI not available"
-            if not GOOGLE_CLOUD_AVAILABLE:
-                error_msg += "\n💡 Google Cloud libraries not installed properly"
-            elif not VERTEX_AI_INITIALIZED:
-                error_msg += "\n💡 Vertex AI initialization failed - check authentication"
-            raise Exception(error_msg)
+            raise Exception("❌ Google Cloud AI not available - cannot generate AI responses")
     
     def setup_agent(self):
         """Setup the medical job description agent using LangchainAgent"""

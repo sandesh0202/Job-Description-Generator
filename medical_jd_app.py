@@ -119,13 +119,13 @@ def create_speech_component():
             }}
         }}, 100);
         
-        // Method 3: Direct session state update (removed forced refresh)
+        // Method 3: Force page refresh to pick up URL params
         setTimeout(() => {{
             if (text.trim()) {{
-                console.log('Speech text captured, no refresh needed');
-                // Let Streamlit handle the state naturally
+                console.log('Forcing page refresh to capture speech text');
+                parent.window.location.reload();
             }}
-        }}, 100);
+        }}, 1000);
     }}
 
     function startSpeechRecognition() {{
@@ -317,57 +317,40 @@ def main():
             st.info(f"🎤 Using voice input: {final_prompt[:100]}..." if len(final_prompt) > 100 else f"🎤 Using voice input: {final_prompt}")
             
             with st.spinner("🤖 AI is creating your medical job description..."):
-                try:
-                    # Parse prompt for basic requirements
-                    job_requirements = parse_prompt_for_requirements(final_prompt)
-                    
-                    # Enhanced prompt for AI with Indian medical context
-                    enhanced_prompt = f"""
-                    Based on this medical staffing request for the Indian healthcare system, create a comprehensive medical job description:
-                    
-                    "{final_prompt}"
-                    
-                    Please extract and infer all relevant details for Indian healthcare including:
-                    - Job title and medical specialty appropriate for India
-                    - Hospital/clinic name and type (multi-specialty, super-specialty, etc.)
-                    - Location (Indian city/state)
-                    - Experience level and qualifications as per Indian standards
-                    - Required licenses and certifications (State Medical Council, Nursing Council, etc.)
-                    - Salary range in Indian Rupees (₹) - use lakhs/crores format
-                    - Shift patterns common in Indian hospitals
-                    - Patient population and care setting in Indian context
-                    - Key responsibilities following Indian healthcare practices
-                    - Indian employment benefits (PF, ESI, Gratuity, Medical Insurance)
-                    - Compliance with Indian healthcare regulations (Clinical Establishments Act, Bio-Medical Waste Rules, NMC guidelines)
-                    
-                    Create a professional, compliant medical job description that would attract qualified healthcare professionals in India and follows Indian medical education and registration standards.
-                    """
-                    
-                    job_requirements['enhanced_prompt'] = enhanced_prompt
-                    
-                    # Debug information
-                    st.info(f"🔧 **Debug:** Sending request to AI generator...")
-                    
-                    # Generate job description
-                    result = st.session_state.generator.generate_medical_job_description(job_requirements)
-                    
-                    if result:
-                        st.session_state.generated_jd = result
-                        st.success("✅ Job description generated successfully!")
-                    else:
-                        st.error("❌ AI generator returned empty result. Check your Google Cloud authentication.")
-                        
-                except Exception as e:
-                    st.error(f"❌ **Error during generation:** {str(e)}")
-                    st.info("💡 **Possible solutions:**")
-                    st.info("1. Check your Google Cloud credentials")
-                    st.info("2. Ensure Vertex AI is enabled in your project")
-                    st.info("3. Verify your service account has proper permissions")
-                    
-                    # Show detailed error for debugging
-                    with st.expander("🔍 Show detailed error information"):
-                        st.code(str(e))
-                        
+                # Parse prompt for basic requirements
+                job_requirements = parse_prompt_for_requirements(final_prompt)
+                
+                # Enhanced prompt for AI with Indian medical context
+                enhanced_prompt = f"""
+                Based on this medical staffing request for the Indian healthcare system, create a comprehensive medical job description:
+                
+                "{final_prompt}"
+                
+                Please extract and infer all relevant details for Indian healthcare including:
+                - Job title and medical specialty appropriate for India
+                - Hospital/clinic name and type (multi-specialty, super-specialty, etc.)
+                - Location (Indian city/state)
+                - Experience level and qualifications as per Indian standards
+                - Required licenses and certifications (State Medical Council, Nursing Council, etc.)
+                - Salary range in Indian Rupees (₹) - use lakhs/crores format
+                - Shift patterns common in Indian hospitals
+                - Patient population and care setting in Indian context
+                - Key responsibilities following Indian healthcare practices
+                - Indian employment benefits (PF, ESI, Gratuity, Medical Insurance)
+                - Compliance with Indian healthcare regulations (Clinical Establishments Act, Bio-Medical Waste Rules, NMC guidelines)
+                
+                Create a professional, compliant medical job description that would attract qualified healthcare professionals in India and follows Indian medical education and registration standards.
+                """
+                
+                job_requirements['enhanced_prompt'] = enhanced_prompt
+                
+                # Generate job description
+                result = st.session_state.generator.generate_medical_job_description(job_requirements)
+                
+                if result:
+                    st.session_state.generated_jd = result
+                else:
+                    st.error("❌ Failed to generate job description. Please try again.")
         else:
             st.warning("⚠️ Please record your job requirements using voice input first.")
     
