@@ -119,13 +119,13 @@ def create_speech_component():
             }}
         }}, 100);
         
-        // Method 3: Direct session state update (removed forced refresh)
+        // Method 3: Force page refresh to pick up URL params
         setTimeout(() => {{
             if (text.trim()) {{
-                console.log('Speech text captured, no refresh needed');
-                // Let Streamlit handle the state naturally
+                console.log('Forcing page refresh to capture speech text');
+                parent.window.location.reload();
             }}
-        }}, 100);
+        }}, 1000);
     }}
 
     function startSpeechRecognition() {{
